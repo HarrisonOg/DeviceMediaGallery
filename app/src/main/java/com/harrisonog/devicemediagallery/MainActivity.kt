@@ -12,7 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.harrisonog.devicemediagallery.ui.screens.home.HomeScreen
+import com.harrisonog.devicemediagallery.ui.navigation.GalleryNavGraph
 import com.harrisonog.devicemediagallery.ui.theme.GalleryTheme
 import com.harrisonog.devicemediagallery.util.RequestMediaPermissions
 import dagger.hilt.android.AndroidEntryPoint
@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
                     RequestMediaPermissions(
                         onPermissionsGranted = { permissionsGranted = true }
                     ) {
-                        HomeScreen()
+                        GalleryNavGraph()
                     }
                 }
             }
