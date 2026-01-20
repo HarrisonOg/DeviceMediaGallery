@@ -21,6 +21,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.harrisonog.devicemediagallery.ui.screens.folders.FoldersScreen
 import com.harrisonog.devicemediagallery.ui.screens.home.HomeScreen
 
 @Composable
@@ -42,10 +43,11 @@ fun GalleryNavGraph(
         }
 
         composable(Routes.Folders.route) {
-            // FoldersScreen will be added in Phase 2.2
-            PlaceholderScreen(
-                title = "Folders",
-                onBack = { navController.popBackStack() }
+            FoldersScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToFolder = { path ->
+                    navController.navigate(Routes.FolderDetail.createRoute(path))
+                }
             )
         }
 

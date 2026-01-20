@@ -1,9 +1,16 @@
 package com.harrisonog.devicemediagallery.ui.screens.home
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Done
@@ -21,7 +28,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.harrisonog.devicemediagallery.ui.components.FolderGridItem
 import com.harrisonog.devicemediagallery.ui.components.MediaGrid
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -94,7 +103,7 @@ fun HomeScreen(
                     }
                 }
 
-                uiState.mediaItems.isEmpty() -> {
+                uiState.mediaItems.isEmpty() && uiState.folders.isEmpty() -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -108,25 +117,89 @@ fun HomeScreen(
                 }
 
                 else -> {
-                    MediaGrid(
-                        mediaItems = uiState.mediaItems,
-                        selectedItems = uiState.selectedItems,
-                        onItemClick = { item ->
-                            if (uiState.isSelectionMode) {
-                                viewModel.toggleItemSelection(item)
-                            } else {
-                                // TODO: Navigate to viewer
+                    // Folders section
+                    if (uiState.folders.isNotEmpty() && !uiState.isSelectionMode) {
+                        SectionHeader(
+                            title = "Folders",
+                            actionText = "View All",
+                            onActionClick = onNavigateToFolders
+                        )
+
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(
+                                items = uiState.folders.take(10),
+                                key = { it.path }
+                            ) { folder ->
+                                FolderGridItem(
+                                    folder = folder,
+                                    onClick = { onNavigateToFolder(folder.path) }
+                                )
                             }
-                        },
-                        onItemLongClick = { item ->
-                            if (!uiState.isSelectionMode) {
-                                viewModel.enterSelectionMode(item)
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                        }
+                    }
+
+                    // Media grid
+                    if (uiState.mediaItems.isNotEmpty()) {
+                        if (uiState.folders.isNotEmpty() && !uiState.isSelectionMode) {
+                            SectionHeader(
+                                title = "Recent",
+                                actionText = null,
+                                onActionClick = {}
+                            )
+                        }
+
+                        MediaGrid(
+                            mediaItems = uiState.mediaItems,
+                            selectedItems = uiState.selectedItems,
+                            onItemClick = { item ->
+                                if (uiState.isSelectionMode) {
+                                    viewModel.toggleItemSelection(item)
+                                } else {
+                                    // TODO: Navigate to viewer
+                                }
+                            },
+                            onItemLongClick = { item ->
+                                if (!uiState.isSelectionMode) {
+                                    viewModel.enterSelectionMode(item)
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(
+    title: String,
+    actionText: String?,
+    onActionClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium
+        )
+        if (actionText != null) {
+            Text(
+                text = actionText,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable(onClick = onActionClick)
+            )
         }
     }
 }
