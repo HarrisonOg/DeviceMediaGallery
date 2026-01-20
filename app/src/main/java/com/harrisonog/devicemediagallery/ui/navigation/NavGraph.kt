@@ -1,5 +1,6 @@
 package com.harrisonog.devicemediagallery.ui.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -10,6 +11,7 @@ import androidx.navigation.navArgument
 import com.harrisonog.devicemediagallery.ui.screens.folderdetail.FolderDetailScreen
 import com.harrisonog.devicemediagallery.ui.screens.folders.FoldersScreen
 import com.harrisonog.devicemediagallery.ui.screens.home.HomeScreen
+import com.harrisonog.devicemediagallery.ui.screens.viewer.MediaViewerScreen
 
 @Composable
 fun GalleryNavGraph(
@@ -41,10 +43,27 @@ fun GalleryNavGraph(
         composable(
             route = Routes.FolderDetail.route,
             arguments = listOf(navArgument("folderPath") { type = NavType.StringType })
-        ) {
+        ) { backStackEntry ->
+            val folderPath = backStackEntry.arguments?.getString("folderPath") ?: ""
             FolderDetailScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToViewer = { /* Viewer navigation will be added in a future phase */ }
+                onNavigateToViewer = { index ->
+                    navController.navigate(
+                        Routes.MediaViewer.createRoute(folderPath, index)
+                    )
+                }
+            )
+        }
+
+        composable(
+            route = Routes.MediaViewer.route,
+            arguments = listOf(
+                navArgument("folderPath") { type = NavType.StringType },
+                navArgument("initialIndex") { type = NavType.IntType }
+            )
+        ) {
+            MediaViewerScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

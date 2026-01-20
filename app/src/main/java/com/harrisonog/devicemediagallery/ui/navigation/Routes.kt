@@ -8,4 +8,9 @@ sealed class Routes(val route: String) {
     data object FolderDetail : Routes("folder/{folderPath}") {
         fun createRoute(folderPath: String): String = "folder/${Uri.encode(folderPath)}"
     }
+
+    data object MediaViewer : Routes("viewer/{folderPath}/{initialIndex}") {
+        fun createRoute(folderPath: String, initialIndex: Int): String =
+            "viewer/${Uri.encode(folderPath)}/$initialIndex"
+    }
 }

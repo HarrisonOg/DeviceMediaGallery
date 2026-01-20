@@ -21,14 +21,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.harrisonog.devicemediagallery.domain.model.MediaItem
 import com.harrisonog.devicemediagallery.ui.components.MediaGrid
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderDetailScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToViewer: (MediaItem) -> Unit,
+    onNavigateToViewer: (Int) -> Unit,
     viewModel: FolderDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -120,7 +119,10 @@ fun FolderDetailScreen(
                             if (uiState.isSelectionMode) {
                                 viewModel.toggleItemSelection(item)
                             } else {
-                                onNavigateToViewer(item)
+                                val index = uiState.mediaItems.indexOf(item)
+                                if (index >= 0) {
+                                    onNavigateToViewer(index)
+                                }
                             }
                         },
                         onItemLongClick = { item ->
