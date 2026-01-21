@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -24,7 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.harrisonog.devicemediagallery.ui.components.AddToAlbumBottomSheet
 import com.harrisonog.devicemediagallery.ui.components.CreateAlbumDialog
+import com.harrisonog.devicemediagallery.ui.components.CreateTagDialog
 import com.harrisonog.devicemediagallery.ui.components.MediaGrid
+import com.harrisonog.devicemediagallery.ui.components.TagSelectionBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +74,12 @@ fun FolderDetailScreen(
                 },
                 actions = {
                     if (uiState.isSelectionMode) {
+                        IconButton(onClick = { viewModel.showTagSheet() }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Add tags"
+                            )
+                        }
                         IconButton(onClick = { viewModel.showAddToAlbumSheet() }) {
                             Icon(
                                 imageVector = Icons.Default.Add,
@@ -166,6 +175,28 @@ fun FolderDetailScreen(
             onDismiss = { viewModel.hideCreateAlbumDialog() },
             onConfirm = { name ->
                 viewModel.createAlbumAndAddSelected(name)
+            }
+        )
+    }
+
+    if (uiState.showTagSheet) {
+        TagSelectionBottomSheet(
+            tags = uiState.tags,
+            onDismiss = { viewModel.hideTagSheet() },
+            onApplyTags = { tagIds ->
+                viewModel.applyTagsToSelected(tagIds)
+            },
+            onCreateNewTag = {
+                viewModel.showCreateTagDialog()
+            }
+        )
+    }
+
+    if (uiState.showCreateTagDialog) {
+        CreateTagDialog(
+            onDismiss = { viewModel.hideCreateTagDialog() },
+            onConfirm = { name, color ->
+                viewModel.createTag(name, color)
             }
         )
     }

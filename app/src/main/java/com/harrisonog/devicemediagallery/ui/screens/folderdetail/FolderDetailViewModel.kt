@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.harrisonog.devicemediagallery.data.repository.AlbumRepository
 import com.harrisonog.devicemediagallery.data.repository.MediaRepository
+import com.harrisonog.devicemediagallery.data.repository.TagRepository
 import com.harrisonog.devicemediagallery.domain.model.MediaItem
+import com.harrisonog.devicemediagallery.domain.model.Tag
 import com.harrisonog.devicemediagallery.domain.model.VirtualAlbum
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,13 +26,17 @@ data class FolderDetailUiState(
     val isRefreshing: Boolean = false,
     val albums: List<VirtualAlbum> = emptyList(),
     val showAddToAlbumSheet: Boolean = false,
-    val showCreateAlbumDialog: Boolean = false
+    val showCreateAlbumDialog: Boolean = false,
+    val tags: List<Tag> = emptyList(),
+    val showTagSheet: Boolean = false,
+    val showCreateTagDialog: Boolean = false
 )
 
 @HiltViewModel
 class FolderDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
     private val albumRepository: AlbumRepository,
+    private val tagRepository: TagRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -44,6 +50,7 @@ class FolderDetailViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(folderName = folderName)
         loadMedia()
         loadAlbums()
+        loadTags()
     }
 
     private fun loadAlbums() {
@@ -164,6 +171,61 @@ class FolderDetailViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = e.message ?: "Failed to create album"
+                )
+            }
+        }
+    }
+
+    private fun loadTags() {
+        viewModelScope.launch {
+            try {
+                tagRepository.getAllTags().collect { tags ->
+                    _uiState.value = _uiState.value.copy(tags = tags)
+                }
+            } catch (e: Exception) {
+                // Tags loading error - non-critical
+            }
+        }
+    }
+
+    fun showTagSheet() {
+        _uiState.value = _uiState.value.copy(showTagSheet = true)
+    }
+
+    fun hideTagSheet() {
+        _uiState.value = _uiState.value.copy(showTagSheet = false)
+    }
+
+    fun showCreateTagDialog() {
+        _uiState.value = _uiState.value.copy(showCreateTagDialog = true)
+    }
+
+    fun hideCreateTagDialog() {
+        _uiState.value = _uiState.value.copy(showCreateTagDialog = false)
+    }
+
+    fun applyTagsToSelected(tagIds: List<Long>) {
+        viewModelScope.launch {
+            try {
+                tagRepository.applyTagsToMedia(_uiState.value.selectedItems.toList(), tagIds)
+                hideTagSheet()
+                clearSelection()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = e.message ?: "Failed to apply tags"
+                )
+            }
+        }
+    }
+
+    fun createTag(name: String, color: Int) {
+        viewModelScope.launch {
+            try {
+                tagRepository.createTag(name, color)
+                hideCreateTagDialog()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = e.message ?: "Failed to create tag"
                 )
             }
         }
