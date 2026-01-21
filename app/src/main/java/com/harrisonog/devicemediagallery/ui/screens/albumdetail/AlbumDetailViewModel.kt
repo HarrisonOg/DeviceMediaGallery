@@ -1,4 +1,4 @@
-package com.harrisonog.devicemediagallery.ui.screens.folderdetail
+package com.harrisonog.devicemediagallery.ui.screens.albumdetail
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -11,70 +11,61 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class FolderDetailUiState(
+data class AlbumDetailUiState(
     val isLoading: Boolean = true,
+    val album: VirtualAlbum? = null,
     val mediaItems: List<MediaItem> = emptyList(),
-    val folderName: String = "",
-    val error: String? = null,
     val selectedItems: Set<String> = emptySet(),
     val isSelectionMode: Boolean = false,
     val isRefreshing: Boolean = false,
-    val albums: List<VirtualAlbum> = emptyList(),
-    val showAddToAlbumSheet: Boolean = false,
-    val showCreateAlbumDialog: Boolean = false
+    val showRenameDialog: Boolean = false,
+    val error: String? = null
 )
 
 @HiltViewModel
-class FolderDetailViewModel @Inject constructor(
-    private val mediaRepository: MediaRepository,
+class AlbumDetailViewModel @Inject constructor(
     private val albumRepository: AlbumRepository,
+    private val mediaRepository: MediaRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val folderPath: String = savedStateHandle.get<String>("folderPath") ?: ""
+    private val albumId: Long = savedStateHandle.get<Long>("albumId") ?: 0L
 
-    private val _uiState = MutableStateFlow(FolderDetailUiState())
-    val uiState: StateFlow<FolderDetailUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(AlbumDetailUiState())
+    val uiState: StateFlow<AlbumDetailUiState> = _uiState.asStateFlow()
 
     init {
-        val folderName = folderPath.substringAfterLast("/")
-        _uiState.value = _uiState.value.copy(folderName = folderName)
-        loadMedia()
-        loadAlbums()
+        loadAlbumDetails()
     }
 
-    private fun loadAlbums() {
-        viewModelScope.launch {
-            try {
-                albumRepository.getVirtualAlbums().collect { albums ->
-                    _uiState.value = _uiState.value.copy(albums = albums)
-                }
-            } catch (e: Exception) {
-                // Albums loading error - non-critical
-            }
-        }
-    }
-
-    fun loadMedia() {
+    private fun loadAlbumDetails() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
             try {
-                mediaRepository.getMediaItems(folderPath).collect { items ->
+                val album = albumRepository.getAlbumById(albumId)
+                _uiState.value = _uiState.value.copy(album = album)
+
+                albumRepository.getAlbumMediaUris(albumId).collect { uris ->
+                    val allMedia = mediaRepository.getMediaItems().first()
+                    val albumMedia = allMedia.filter { it.uri.toString() in uris }
+                        .sortedByDescending { it.dateModified }
+
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        mediaItems = items
+                        mediaItems = albumMedia
                     )
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     isRefreshing = false,
-                    error = e.message ?: "Failed to load media"
+                    error = e.message ?: "Failed to load album"
                 )
             }
         }
@@ -82,15 +73,7 @@ class FolderDetailViewModel @Inject constructor(
 
     fun refresh() {
         _uiState.value = _uiState.value.copy(isRefreshing = true)
-        loadMedia()
-    }
-
-    fun toggleSelectionMode() {
-        val newSelectionMode = !_uiState.value.isSelectionMode
-        _uiState.value = _uiState.value.copy(
-            isSelectionMode = newSelectionMode,
-            selectedItems = if (newSelectionMode) _uiState.value.selectedItems else emptySet()
-        )
+        loadAlbumDetails()
     }
 
     fun toggleItemSelection(item: MediaItem) {
@@ -123,47 +106,39 @@ class FolderDetailViewModel @Inject constructor(
         )
     }
 
-    fun showAddToAlbumSheet() {
-        _uiState.value = _uiState.value.copy(showAddToAlbumSheet = true)
-    }
-
-    fun hideAddToAlbumSheet() {
-        _uiState.value = _uiState.value.copy(showAddToAlbumSheet = false)
-    }
-
-    fun showCreateAlbumDialog() {
-        _uiState.value = _uiState.value.copy(showCreateAlbumDialog = true)
-    }
-
-    fun hideCreateAlbumDialog() {
-        _uiState.value = _uiState.value.copy(showCreateAlbumDialog = false)
-    }
-
-    fun addSelectedToAlbum(albumId: Long) {
+    fun removeSelectedFromAlbum() {
         viewModelScope.launch {
             try {
-                albumRepository.addMediaToAlbum(albumId, _uiState.value.selectedItems.toList())
-                hideAddToAlbumSheet()
+                albumRepository.removeMediaFromAlbum(albumId, _uiState.value.selectedItems.toList())
                 clearSelection()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Failed to add to album"
+                    error = e.message ?: "Failed to remove items"
                 )
             }
         }
     }
 
-    fun createAlbumAndAddSelected(name: String) {
+    fun showRenameDialog() {
+        _uiState.value = _uiState.value.copy(showRenameDialog = true)
+    }
+
+    fun hideRenameDialog() {
+        _uiState.value = _uiState.value.copy(showRenameDialog = false)
+    }
+
+    fun renameAlbum(newName: String) {
         viewModelScope.launch {
             try {
-                val albumId = albumRepository.createAlbum(name)
-                albumRepository.addMediaToAlbum(albumId, _uiState.value.selectedItems.toList())
-                hideCreateAlbumDialog()
-                hideAddToAlbumSheet()
-                clearSelection()
+                _uiState.value.album?.let { album ->
+                    val updatedAlbum = album.copy(name = newName)
+                    albumRepository.updateAlbum(updatedAlbum)
+                    _uiState.value = _uiState.value.copy(album = updatedAlbum)
+                }
+                hideRenameDialog()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Failed to create album"
+                    error = e.message ?: "Failed to rename album"
                 )
             }
         }

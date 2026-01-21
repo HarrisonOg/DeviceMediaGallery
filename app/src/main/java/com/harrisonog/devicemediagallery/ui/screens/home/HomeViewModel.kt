@@ -2,9 +2,11 @@ package com.harrisonog.devicemediagallery.ui.screens.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.harrisonog.devicemediagallery.data.repository.AlbumRepository
 import com.harrisonog.devicemediagallery.data.repository.MediaRepository
 import com.harrisonog.devicemediagallery.domain.model.MediaFolder
 import com.harrisonog.devicemediagallery.domain.model.MediaItem
+import com.harrisonog.devicemediagallery.domain.model.VirtualAlbum
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,6 +20,7 @@ data class HomeUiState(
     val isLoading: Boolean = true,
     val mediaItems: List<MediaItem> = emptyList(),
     val folders: List<MediaFolder> = emptyList(),
+    val albums: List<VirtualAlbum> = emptyList(),
     val selectedItems: Set<String> = emptySet(),
     val isSelectionMode: Boolean = false,
     val error: String? = null
@@ -25,7 +28,8 @@ data class HomeUiState(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val mediaRepository: MediaRepository
+    private val mediaRepository: MediaRepository,
+    private val albumRepository: AlbumRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -61,6 +65,16 @@ class HomeViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 // Folders loading error - non-critical
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                albumRepository.getVirtualAlbums().collect { albums ->
+                    _uiState.value = _uiState.value.copy(albums = albums)
+                }
+            } catch (e: Exception) {
+                // Albums loading error - non-critical
             }
         }
     }

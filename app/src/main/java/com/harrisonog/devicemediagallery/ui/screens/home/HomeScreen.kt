@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.harrisonog.devicemediagallery.ui.components.AlbumGridItem
 import com.harrisonog.devicemediagallery.ui.components.FolderGridItem
 import com.harrisonog.devicemediagallery.ui.components.MediaGrid
 
@@ -38,6 +39,8 @@ import com.harrisonog.devicemediagallery.ui.components.MediaGrid
 fun HomeScreen(
     onNavigateToFolders: () -> Unit = {},
     onNavigateToFolder: (String) -> Unit = {},
+    onNavigateToAlbums: () -> Unit = {},
+    onNavigateToAlbum: (Long) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -136,6 +139,30 @@ fun HomeScreen(
                                 FolderGridItem(
                                     folder = folder,
                                     onClick = { onNavigateToFolder(folder.path) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Albums section
+                    if (uiState.albums.isNotEmpty() && !uiState.isSelectionMode) {
+                        SectionHeader(
+                            title = "Albums",
+                            actionText = "View All",
+                            onActionClick = onNavigateToAlbums
+                        )
+
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(
+                                items = uiState.albums.take(10),
+                                key = { it.id }
+                            ) { album ->
+                                AlbumGridItem(
+                                    album = album,
+                                    onClick = { onNavigateToAlbum(album.id) }
                                 )
                             }
                         }

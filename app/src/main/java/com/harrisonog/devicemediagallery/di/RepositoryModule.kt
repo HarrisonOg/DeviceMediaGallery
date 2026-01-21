@@ -1,5 +1,7 @@
 package com.harrisonog.devicemediagallery.di
 
+import com.harrisonog.devicemediagallery.data.repository.AlbumRepository
+import com.harrisonog.devicemediagallery.data.repository.AlbumRepositoryImpl
 import com.harrisonog.devicemediagallery.data.repository.MediaRepository
 import com.harrisonog.devicemediagallery.data.repository.MediaRepositoryImpl
 import dagger.Binds
@@ -17,4 +19,10 @@ abstract class RepositoryModule {
     abstract fun bindMediaRepository(
         impl: MediaRepositoryImpl
     ): MediaRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAlbumRepository(
+        impl: AlbumRepositoryImpl
+    ): AlbumRepository
 }

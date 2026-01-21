@@ -8,9 +8,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.harrisonog.devicemediagallery.ui.screens.albumdetail.AlbumDetailScreen
+import com.harrisonog.devicemediagallery.ui.screens.albums.AlbumsScreen
 import com.harrisonog.devicemediagallery.ui.screens.folderdetail.FolderDetailScreen
 import com.harrisonog.devicemediagallery.ui.screens.folders.FoldersScreen
 import com.harrisonog.devicemediagallery.ui.screens.home.HomeScreen
+import com.harrisonog.devicemediagallery.ui.screens.viewer.AlbumViewerScreen
 import com.harrisonog.devicemediagallery.ui.screens.viewer.MediaViewerScreen
 
 @Composable
@@ -27,6 +30,10 @@ fun GalleryNavGraph(
                 onNavigateToFolders = { navController.navigate(Routes.Folders.route) },
                 onNavigateToFolder = { path ->
                     navController.navigate(Routes.FolderDetail.createRoute(path))
+                },
+                onNavigateToAlbums = { navController.navigate(Routes.Albums.route) },
+                onNavigateToAlbum = { albumId ->
+                    navController.navigate(Routes.AlbumDetail.createRoute(albumId))
                 }
             )
         }
@@ -63,6 +70,42 @@ fun GalleryNavGraph(
             )
         ) {
             MediaViewerScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.Albums.route) {
+            AlbumsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAlbum = { albumId ->
+                    navController.navigate(Routes.AlbumDetail.createRoute(albumId))
+                }
+            )
+        }
+
+        composable(
+            route = Routes.AlbumDetail.route,
+            arguments = listOf(navArgument("albumId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val albumId = backStackEntry.arguments?.getLong("albumId") ?: 0L
+            AlbumDetailScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToViewer = { index ->
+                    navController.navigate(
+                        Routes.AlbumViewer.createRoute(albumId, index)
+                    )
+                }
+            )
+        }
+
+        composable(
+            route = Routes.AlbumViewer.route,
+            arguments = listOf(
+                navArgument("albumId") { type = NavType.LongType },
+                navArgument("initialIndex") { type = NavType.IntType }
+            )
+        ) {
+            AlbumViewerScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

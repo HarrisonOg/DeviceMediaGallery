@@ -1,13 +1,17 @@
-package com.harrisonog.devicemediagallery.ui.screens.folderdetail
+package com.harrisonog.devicemediagallery.ui.screens.albumdetail
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -15,25 +19,29 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.harrisonog.devicemediagallery.ui.components.AddToAlbumBottomSheet
 import com.harrisonog.devicemediagallery.ui.components.CreateAlbumDialog
 import com.harrisonog.devicemediagallery.ui.components.MediaGrid
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FolderDetailScreen(
+fun AlbumDetailScreen(
     onNavigateBack: () -> Unit,
     onNavigateToViewer: (Int) -> Unit,
-    viewModel: FolderDetailViewModel = hiltViewModel()
+    viewModel: AlbumDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -42,7 +50,7 @@ fun FolderDetailScreen(
                     if (uiState.isSelectionMode) {
                         Text("${uiState.selectedItems.size} selected")
                     } else {
-                        Text(uiState.folderName)
+                        Text(uiState.album?.name ?: "Album")
                     }
                 },
                 navigationIcon = {
@@ -71,14 +79,43 @@ fun FolderDetailScreen(
                 },
                 actions = {
                     if (uiState.isSelectionMode) {
-                        IconButton(onClick = { viewModel.showAddToAlbumSheet() }) {
+                        IconButton(onClick = { viewModel.removeSelectedFromAlbum() }) {
                             Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add to album"
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Remove from album"
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More options"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Rename") },
+                                onClick = {
+                                    showMenu = false
+                                    viewModel.showRenameDialog()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Edit, contentDescription = null)
+                                }
                             )
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = if (uiState.isSelectionMode) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    }
+                )
             )
         }
     ) { paddingValues ->
@@ -117,7 +154,7 @@ fun FolderDetailScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No media in this folder",
+                            text = "This album is empty.\nAdd photos from your folders.",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -148,25 +185,13 @@ fun FolderDetailScreen(
         }
     }
 
-    if (uiState.showAddToAlbumSheet) {
-        AddToAlbumBottomSheet(
-            albums = uiState.albums,
-            onDismiss = { viewModel.hideAddToAlbumSheet() },
-            onAlbumSelected = { album ->
-                viewModel.addSelectedToAlbum(album.id)
-            },
-            onCreateNewAlbum = {
-                viewModel.showCreateAlbumDialog()
-            }
-        )
-    }
-
-    if (uiState.showCreateAlbumDialog) {
+    if (uiState.showRenameDialog) {
         CreateAlbumDialog(
-            onDismiss = { viewModel.hideCreateAlbumDialog() },
-            onConfirm = { name ->
-                viewModel.createAlbumAndAddSelected(name)
-            }
+            onDismiss = { viewModel.hideRenameDialog() },
+            onConfirm = { newName -> viewModel.renameAlbum(newName) },
+            title = "Rename Album",
+            initialName = uiState.album?.name ?: "",
+            confirmButtonText = "Rename"
         )
     }
 }

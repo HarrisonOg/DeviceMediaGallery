@@ -13,4 +13,15 @@ sealed class Routes(val route: String) {
         fun createRoute(folderPath: String, initialIndex: Int): String =
             "viewer/${Uri.encode(folderPath)}/$initialIndex"
     }
+
+    data object Albums : Routes("albums")
+
+    data object AlbumDetail : Routes("album/{albumId}") {
+        fun createRoute(albumId: Long): String = "album/$albumId"
+    }
+
+    data object AlbumViewer : Routes("album_viewer/{albumId}/{initialIndex}") {
+        fun createRoute(albumId: Long, initialIndex: Int): String =
+            "album_viewer/$albumId/$initialIndex"
+    }
 }
