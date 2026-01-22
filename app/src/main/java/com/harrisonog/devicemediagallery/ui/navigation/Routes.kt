@@ -25,6 +25,10 @@ sealed class Routes(val route: String) {
             "album_viewer/$albumId/$initialIndex"
     }
 
+    data object HomeViewer : Routes("home_viewer/{initialIndex}") {
+        fun createRoute(initialIndex: Int): String = "home_viewer/$initialIndex"
+    }
+
     data object Trash : Routes("trash")
     data object Duplicates : Routes("duplicates")
 }
