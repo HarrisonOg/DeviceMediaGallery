@@ -8,6 +8,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -36,20 +38,17 @@ class TrashViewModel @Inject constructor(
 
     private fun loadTrashItems() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            try {
-                trashRepository.getTrashItems().collect { items ->
-                    _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            trashRepository.getTrashItems()
+                .catch { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load trash items") }
+                }
+                .collect { items ->
+                    _uiState.update { it.copy(
                         isLoading = false,
                         trashItems = items
-                    )
+                    ) }
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load trash items"
-                )
-            }
         }
     }
 
@@ -64,55 +63,60 @@ class TrashViewModel @Inject constructor(
     }
 
     fun toggleItemSelection(item: TrashItem) {
-        val itemUri = item.originalUri.toString()
-        val currentSelected = _uiState.value.selectedItems
-        val newSelected = if (itemUri in currentSelected) {
-            currentSelected - itemUri
-        } else {
-            currentSelected + itemUri
-        }
+        _uiState.update { state ->
+            val itemUri = item.originalUri.toString()
+            val currentSelected = state.selectedItems
+            val newSelected = if (itemUri in currentSelected) {
+                currentSelected - itemUri
+            } else {
+                currentSelected + itemUri
+            }
 
-        _uiState.value = _uiState.value.copy(
-            selectedItems = newSelected,
-            isSelectionMode = newSelected.isNotEmpty()
-        )
+            state.copy(
+                selectedItems = newSelected,
+                isSelectionMode = newSelected.isNotEmpty()
+            )
+        }
     }
 
     fun clearSelection() {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             selectedItems = emptySet(),
             isSelectionMode = false
-        )
+        ) }
     }
 
     fun selectAll() {
-        val allUris = _uiState.value.trashItems.map { it.originalUri.toString() }.toSet()
-        _uiState.value = _uiState.value.copy(
-            selectedItems = allUris,
-            isSelectionMode = true
-        )
+        _uiState.update { state ->
+            val allUris = state.trashItems.map { it.originalUri.toString() }.toSet()
+            state.copy(
+                selectedItems = allUris,
+                isSelectionMode = true
+            )
+        }
     }
 
     fun showEmptyTrashDialog() {
-        _uiState.value = _uiState.value.copy(showEmptyTrashDialog = true)
+        _uiState.update { it.copy(showEmptyTrashDialog = true) }
     }
 
     fun hideEmptyTrashDialog() {
-        _uiState.value = _uiState.value.copy(showEmptyTrashDialog = false)
+        _uiState.update { it.copy(showEmptyTrashDialog = false) }
     }
 
     fun showDeleteConfirmDialog() {
-        _uiState.value = _uiState.value.copy(showDeleteConfirmDialog = true)
+        _uiState.update { it.copy(showDeleteConfirmDialog = true) }
     }
 
     fun hideDeleteConfirmDialog() {
-        _uiState.value = _uiState.value.copy(showDeleteConfirmDialog = false)
+        _uiState.update { it.copy(showDeleteConfirmDialog = false) }
     }
 
     fun restoreSelected() {
         viewModelScope.launch {
-            val selectedUris = _uiState.value.selectedItems
-            val itemsToRestore = _uiState.value.trashItems.filter {
+            val state = _uiState.value
+            val selectedUris = state.selectedItems
+            val itemsToRestore = state.trashItems.filter {
                 it.originalUri.toString() in selectedUris
             }
 
@@ -121,17 +125,16 @@ class TrashViewModel @Inject constructor(
                     clearSelection()
                 }
                 .onFailure { e ->
-                    _uiState.value = _uiState.value.copy(
-                        error = e.message ?: "Failed to restore items"
-                    )
+                    _uiState.update { it.copy(error = e.message ?: "Failed to restore items") }
                 }
         }
     }
 
     fun deleteSelectedPermanently() {
         viewModelScope.launch {
-            val selectedUris = _uiState.value.selectedItems
-            val itemsToDelete = _uiState.value.trashItems.filter {
+            val state = _uiState.value
+            val selectedUris = state.selectedItems
+            val itemsToDelete = state.trashItems.filter {
                 it.originalUri.toString() in selectedUris
             }
 
@@ -141,9 +144,7 @@ class TrashViewModel @Inject constructor(
                     hideDeleteConfirmDialog()
                 }
                 .onFailure { e ->
-                    _uiState.value = _uiState.value.copy(
-                        error = e.message ?: "Failed to delete items"
-                    )
+                    _uiState.update { it.copy(error = e.message ?: "Failed to delete items") }
                     hideDeleteConfirmDialog()
                 }
         }
@@ -156,15 +157,13 @@ class TrashViewModel @Inject constructor(
                     hideEmptyTrashDialog()
                 }
                 .onFailure { e ->
-                    _uiState.value = _uiState.value.copy(
-                        error = e.message ?: "Failed to empty trash"
-                    )
+                    _uiState.update { it.copy(error = e.message ?: "Failed to empty trash") }
                     hideEmptyTrashDialog()
                 }
         }
     }
 
     fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
+        _uiState.update { it.copy(error = null) }
     }
 }

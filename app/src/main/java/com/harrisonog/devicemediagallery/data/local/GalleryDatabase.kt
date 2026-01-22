@@ -15,6 +15,9 @@ import com.harrisonog.devicemediagallery.data.local.entities.TagEntity
 import com.harrisonog.devicemediagallery.data.local.entities.TrashItemEntity
 import com.harrisonog.devicemediagallery.data.local.entities.VirtualAlbumEntity
 
+// Note: exportSchema = true enables schema export for future auto-migrations.
+// Auto-migrations can be added when schema files exist:
+// autoMigrations = [AutoMigration(from = 3, to = 4)]
 @Database(
     entities = [
         VirtualAlbumEntity::class,
@@ -26,7 +29,7 @@ import com.harrisonog.devicemediagallery.data.local.entities.VirtualAlbumEntity
         DuplicateGroupMediaCrossRef::class
     ],
     version = 3,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class GalleryDatabase : RoomDatabase() {
     abstract fun virtualAlbumDao(): VirtualAlbumDao

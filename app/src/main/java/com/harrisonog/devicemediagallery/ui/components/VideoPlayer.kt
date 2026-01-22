@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,25 +24,27 @@ fun VideoPlayer(
 ) {
     val context = LocalContext.current
 
-    val exoPlayer = remember(uri) {
-        ExoPlayer.Builder(context).build().apply {
-            val mediaItem = MediaItem.fromUri(uri)
-            setMediaItem(mediaItem)
-            prepare()
-            playWhenReady = false
-        }
+    // Create player once - it persists across URI changes
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build()
+    }
+
+    // Update media item when URI changes
+    LaunchedEffect(uri) {
+        exoPlayer.setMediaItem(MediaItem.fromUri(uri))
+        exoPlayer.prepare()
+        exoPlayer.playWhenReady = false
     }
 
     // Pause when not on current page
-    DisposableEffect(isCurrentPage) {
+    LaunchedEffect(isCurrentPage) {
         if (!isCurrentPage) {
             exoPlayer.pause()
         }
-        onDispose { }
     }
 
-    // Clean up player on dispose
-    DisposableEffect(exoPlayer) {
+    // Clean up player on dispose - key is Unit so it only runs once on final dispose
+    DisposableEffect(Unit) {
         onDispose {
             exoPlayer.release()
         }

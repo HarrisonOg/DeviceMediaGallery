@@ -11,6 +11,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -45,43 +47,36 @@ class HomeViewModel @Inject constructor(
     fun loadMedia() {
         currentOffset = 0
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null, hasMoreItems = true)
+            _uiState.update { it.copy(isLoading = true, error = null, hasMoreItems = true) }
 
-            try {
-                mediaRepository.getMediaItems(limit = pageSize, offset = 0).collect { items ->
+            mediaRepository.getMediaItems(limit = pageSize, offset = 0)
+                .catch { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load media") }
+                }
+                .collect { items ->
                     currentOffset = items.size
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         isLoading = false,
                         mediaItems = items,
                         hasMoreItems = items.size >= pageSize
-                    )
+                    ) }
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load media"
-                )
-            }
         }
 
         viewModelScope.launch {
-            try {
-                mediaRepository.getFolders().collect { folders ->
-                    _uiState.value = _uiState.value.copy(folders = folders)
+            mediaRepository.getFolders()
+                .catch { /* Folders loading error - non-critical */ }
+                .collect { folders ->
+                    _uiState.update { it.copy(folders = folders) }
                 }
-            } catch (e: Exception) {
-                // Folders loading error - non-critical
-            }
         }
 
         viewModelScope.launch {
-            try {
-                albumRepository.getVirtualAlbums().collect { albums ->
-                    _uiState.value = _uiState.value.copy(albums = albums)
+            albumRepository.getVirtualAlbums()
+                .catch { /* Albums loading error - non-critical */ }
+                .collect { albums ->
+                    _uiState.update { it.copy(albums = albums) }
                 }
-            } catch (e: Exception) {
-                // Albums loading error - non-critical
-            }
         }
     }
 
@@ -90,59 +85,60 @@ class HomeViewModel @Inject constructor(
         if (state.isLoading || state.isLoadingMore || !state.hasMoreItems) return
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingMore = true)
+            _uiState.update { it.copy(isLoadingMore = true) }
 
-            try {
-                mediaRepository.getMediaItems(limit = pageSize, offset = currentOffset).collect { newItems ->
+            mediaRepository.getMediaItems(limit = pageSize, offset = currentOffset)
+                .catch { e ->
+                    _uiState.update { it.copy(isLoadingMore = false, error = e.message ?: "Failed to load more media") }
+                }
+                .collect { newItems ->
                     val currentItems = _uiState.value.mediaItems
                     currentOffset += newItems.size
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         isLoadingMore = false,
                         mediaItems = currentItems + newItems,
                         hasMoreItems = newItems.size >= pageSize
-                    )
+                    ) }
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoadingMore = false,
-                    error = e.message ?: "Failed to load more media"
-                )
-            }
         }
     }
 
     fun toggleItemSelection(item: MediaItem) {
-        val currentSelected = _uiState.value.selectedItems.toMutableSet()
-        val itemUri = item.uri.toString()
+        _uiState.update { state ->
+            val currentSelected = state.selectedItems.toMutableSet()
+            val itemUri = item.uri.toString()
 
-        if (itemUri in currentSelected) {
-            currentSelected.remove(itemUri)
-        } else {
-            currentSelected.add(itemUri)
+            if (itemUri in currentSelected) {
+                currentSelected.remove(itemUri)
+            } else {
+                currentSelected.add(itemUri)
+            }
+
+            state.copy(
+                selectedItems = currentSelected,
+                isSelectionMode = currentSelected.isNotEmpty()
+            )
         }
-
-        _uiState.value = _uiState.value.copy(
-            selectedItems = currentSelected,
-            isSelectionMode = currentSelected.isNotEmpty()
-        )
     }
 
     fun enterSelectionMode(item: MediaItem) {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             isSelectionMode = true,
             selectedItems = setOf(item.uri.toString())
-        )
+        ) }
     }
 
     fun clearSelection() {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             isSelectionMode = false,
             selectedItems = emptySet()
-        )
+        ) }
     }
 
     fun selectAll() {
-        val allUris = _uiState.value.mediaItems.map { it.uri.toString() }.toSet()
-        _uiState.value = _uiState.value.copy(selectedItems = allUris)
+        _uiState.update { state ->
+            val allUris = state.mediaItems.map { it.uri.toString() }.toSet()
+            state.copy(selectedItems = allUris)
+        }
     }
 }

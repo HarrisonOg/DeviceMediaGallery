@@ -5,6 +5,7 @@ import android.content.ContentUris
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
 import com.harrisonog.devicemediagallery.data.local.dao.DuplicateGroupDao
 import com.harrisonog.devicemediagallery.data.local.entities.DuplicateGroupEntity
 import com.harrisonog.devicemediagallery.domain.model.DuplicateGroup
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "DuplicateRepository"
 
 @Singleton
 class DuplicateRepositoryImpl @Inject constructor(
@@ -148,8 +151,16 @@ class DuplicateRepositoryImpl @Inject constructor(
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
                 val uri = ContentUris.withAppendedId(collection, id)
-                val mimeType = cursor.getString(mimeTypeColumn) ?: continue
-                val path = cursor.getString(dataColumn) ?: continue
+                val mimeType = cursor.getString(mimeTypeColumn)
+                if (mimeType == null) {
+                    Log.d(TAG, "Skipping item $id: null mimeType")
+                    continue
+                }
+                val path = cursor.getString(dataColumn)
+                if (path == null) {
+                    Log.d(TAG, "Skipping item $id: null path")
+                    continue
+                }
 
                 val duration = if (mimeType.startsWith("video/")) {
                     cursor.getLong(durationColumn).takeIf { it > 0 }
@@ -178,7 +189,11 @@ class DuplicateRepositoryImpl @Inject constructor(
 
     private fun getMediaItemFromUri(uriString: String): MediaItem? {
         val uri = Uri.parse(uriString)
-        val id = uri.lastPathSegment?.toLongOrNull() ?: return null
+        val id = uri.lastPathSegment?.toLongOrNull()
+        if (id == null) {
+            Log.w(TAG, "Failed to parse ID from URI: $uriString")
+            return null
+        }
 
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)

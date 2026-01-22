@@ -19,4 +19,11 @@ interface MediaRepository {
 
     fun getFolders(): Flow<List<MediaFolder>>
     suspend fun getMediaItemByUri(uri: String): MediaItem?
+
+    /**
+     * Get media items by a list of URIs. More efficient than loading all media
+     * and filtering when you only need specific items.
+     * @param uris List of media URIs to fetch.
+     */
+    suspend fun getMediaItemsByUris(uris: List<String>): List<MediaItem>
 }

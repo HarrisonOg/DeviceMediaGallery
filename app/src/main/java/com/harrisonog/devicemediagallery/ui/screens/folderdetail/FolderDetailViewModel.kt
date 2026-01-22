@@ -14,6 +14,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -55,7 +57,7 @@ class FolderDetailViewModel @Inject constructor(
 
     init {
         val folderName = folderPath.substringAfterLast("/")
-        _uiState.value = _uiState.value.copy(folderName = folderName)
+        _uiState.update { it.copy(folderName = folderName) }
         loadMedia()
         loadAlbums()
         loadTags()
@@ -63,38 +65,36 @@ class FolderDetailViewModel @Inject constructor(
 
     private fun loadAlbums() {
         viewModelScope.launch {
-            try {
-                albumRepository.getVirtualAlbums().collect { albums ->
-                    _uiState.value = _uiState.value.copy(albums = albums)
+            albumRepository.getVirtualAlbums()
+                .catch { /* Albums loading error - non-critical */ }
+                .collect { albums ->
+                    _uiState.update { it.copy(albums = albums) }
                 }
-            } catch (e: Exception) {
-                // Albums loading error - non-critical
-            }
         }
     }
 
     fun loadMedia() {
         currentOffset = 0
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null, hasMoreItems = true)
+            _uiState.update { it.copy(isLoading = true, error = null, hasMoreItems = true) }
 
-            try {
-                mediaRepository.getMediaItems(folderPath, limit = pageSize, offset = 0).collect { items ->
+            mediaRepository.getMediaItems(folderPath, limit = pageSize, offset = 0)
+                .catch { e ->
+                    _uiState.update { it.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = e.message ?: "Failed to load media"
+                    ) }
+                }
+                .collect { items ->
                     currentOffset = items.size
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         isLoading = false,
                         isRefreshing = false,
                         mediaItems = items,
                         hasMoreItems = items.size >= pageSize
-                    )
+                    ) }
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    isRefreshing = false,
-                    error = e.message ?: "Failed to load media"
-                )
-            }
         }
     }
 
@@ -103,84 +103,87 @@ class FolderDetailViewModel @Inject constructor(
         if (state.isLoading || state.isLoadingMore || !state.hasMoreItems) return
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingMore = true)
+            _uiState.update { it.copy(isLoadingMore = true) }
 
-            try {
-                mediaRepository.getMediaItems(folderPath, limit = pageSize, offset = currentOffset).collect { newItems ->
+            mediaRepository.getMediaItems(folderPath, limit = pageSize, offset = currentOffset)
+                .catch { e ->
+                    _uiState.update { it.copy(isLoadingMore = false, error = e.message ?: "Failed to load more media") }
+                }
+                .collect { newItems ->
                     val currentItems = _uiState.value.mediaItems
                     currentOffset += newItems.size
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         isLoadingMore = false,
                         mediaItems = currentItems + newItems,
                         hasMoreItems = newItems.size >= pageSize
-                    )
+                    ) }
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoadingMore = false,
-                    error = e.message ?: "Failed to load more media"
-                )
-            }
         }
     }
 
     fun refresh() {
-        _uiState.value = _uiState.value.copy(isRefreshing = true)
+        _uiState.update { it.copy(isRefreshing = true) }
         loadMedia()
     }
 
     fun toggleSelectionMode() {
-        val newSelectionMode = !_uiState.value.isSelectionMode
-        _uiState.value = _uiState.value.copy(
-            isSelectionMode = newSelectionMode,
-            selectedItems = if (newSelectionMode) _uiState.value.selectedItems else emptySet()
-        )
+        _uiState.update { state ->
+            val newSelectionMode = !state.isSelectionMode
+            state.copy(
+                isSelectionMode = newSelectionMode,
+                selectedItems = if (newSelectionMode) state.selectedItems else emptySet()
+            )
+        }
     }
 
     fun toggleItemSelection(item: MediaItem) {
-        val itemUri = item.uri.toString()
-        val currentSelected = _uiState.value.selectedItems
-        val newSelected = if (itemUri in currentSelected) {
-            currentSelected - itemUri
-        } else {
-            currentSelected + itemUri
-        }
+        _uiState.update { state ->
+            val itemUri = item.uri.toString()
+            val currentSelected = state.selectedItems
+            val newSelected = if (itemUri in currentSelected) {
+                currentSelected - itemUri
+            } else {
+                currentSelected + itemUri
+            }
 
-        _uiState.value = _uiState.value.copy(
-            selectedItems = newSelected,
-            isSelectionMode = newSelected.isNotEmpty()
-        )
+            state.copy(
+                selectedItems = newSelected,
+                isSelectionMode = newSelected.isNotEmpty()
+            )
+        }
     }
 
     fun clearSelection() {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             selectedItems = emptySet(),
             isSelectionMode = false
-        )
+        ) }
     }
 
     fun selectAll() {
-        val allUris = _uiState.value.mediaItems.map { it.uri.toString() }.toSet()
-        _uiState.value = _uiState.value.copy(
-            selectedItems = allUris,
-            isSelectionMode = true
-        )
+        _uiState.update { state ->
+            val allUris = state.mediaItems.map { it.uri.toString() }.toSet()
+            state.copy(
+                selectedItems = allUris,
+                isSelectionMode = true
+            )
+        }
     }
 
     fun showAddToAlbumSheet() {
-        _uiState.value = _uiState.value.copy(showAddToAlbumSheet = true)
+        _uiState.update { it.copy(showAddToAlbumSheet = true) }
     }
 
     fun hideAddToAlbumSheet() {
-        _uiState.value = _uiState.value.copy(showAddToAlbumSheet = false)
+        _uiState.update { it.copy(showAddToAlbumSheet = false) }
     }
 
     fun showCreateAlbumDialog() {
-        _uiState.value = _uiState.value.copy(showCreateAlbumDialog = true)
+        _uiState.update { it.copy(showCreateAlbumDialog = true) }
     }
 
     fun hideCreateAlbumDialog() {
-        _uiState.value = _uiState.value.copy(showCreateAlbumDialog = false)
+        _uiState.update { it.copy(showCreateAlbumDialog = false) }
     }
 
     fun addSelectedToAlbum(albumId: Long) {
@@ -190,9 +193,7 @@ class FolderDetailViewModel @Inject constructor(
                 hideAddToAlbumSheet()
                 clearSelection()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Failed to add to album"
-                )
+                _uiState.update { it.copy(error = e.message ?: "Failed to add to album") }
             }
         }
     }
@@ -206,39 +207,35 @@ class FolderDetailViewModel @Inject constructor(
                 hideAddToAlbumSheet()
                 clearSelection()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Failed to create album"
-                )
+                _uiState.update { it.copy(error = e.message ?: "Failed to create album") }
             }
         }
     }
 
     private fun loadTags() {
         viewModelScope.launch {
-            try {
-                tagRepository.getAllTags().collect { tags ->
-                    _uiState.value = _uiState.value.copy(tags = tags)
+            tagRepository.getAllTags()
+                .catch { /* Tags loading error - non-critical */ }
+                .collect { tags ->
+                    _uiState.update { it.copy(tags = tags) }
                 }
-            } catch (e: Exception) {
-                // Tags loading error - non-critical
-            }
         }
     }
 
     fun showTagSheet() {
-        _uiState.value = _uiState.value.copy(showTagSheet = true)
+        _uiState.update { it.copy(showTagSheet = true) }
     }
 
     fun hideTagSheet() {
-        _uiState.value = _uiState.value.copy(showTagSheet = false)
+        _uiState.update { it.copy(showTagSheet = false) }
     }
 
     fun showCreateTagDialog() {
-        _uiState.value = _uiState.value.copy(showCreateTagDialog = true)
+        _uiState.update { it.copy(showCreateTagDialog = true) }
     }
 
     fun hideCreateTagDialog() {
-        _uiState.value = _uiState.value.copy(showCreateTagDialog = false)
+        _uiState.update { it.copy(showCreateTagDialog = false) }
     }
 
     fun applyTagsToSelected(tagIds: List<Long>) {
@@ -248,9 +245,7 @@ class FolderDetailViewModel @Inject constructor(
                 hideTagSheet()
                 clearSelection()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Failed to apply tags"
-                )
+                _uiState.update { it.copy(error = e.message ?: "Failed to apply tags") }
             }
         }
     }
@@ -261,25 +256,24 @@ class FolderDetailViewModel @Inject constructor(
                 tagRepository.createTag(name, color)
                 hideCreateTagDialog()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Failed to create tag"
-                )
+                _uiState.update { it.copy(error = e.message ?: "Failed to create tag") }
             }
         }
     }
 
     fun showDeleteConfirmDialog() {
-        _uiState.value = _uiState.value.copy(showDeleteConfirmDialog = true)
+        _uiState.update { it.copy(showDeleteConfirmDialog = true) }
     }
 
     fun hideDeleteConfirmDialog() {
-        _uiState.value = _uiState.value.copy(showDeleteConfirmDialog = false)
+        _uiState.update { it.copy(showDeleteConfirmDialog = false) }
     }
 
     fun moveSelectedToTrash() {
         viewModelScope.launch {
-            val selectedUris = _uiState.value.selectedItems
-            val itemsToDelete = _uiState.value.mediaItems.filter {
+            val state = _uiState.value
+            val selectedUris = state.selectedItems
+            val itemsToDelete = state.mediaItems.filter {
                 it.uri.toString() in selectedUris
             }
 
@@ -290,9 +284,7 @@ class FolderDetailViewModel @Inject constructor(
                     loadMedia()
                 }
                 .onFailure { e ->
-                    _uiState.value = _uiState.value.copy(
-                        error = e.message ?: "Failed to move items to trash"
-                    )
+                    _uiState.update { it.copy(error = e.message ?: "Failed to move items to trash") }
                     hideDeleteConfirmDialog()
                 }
         }

@@ -10,7 +10,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -41,29 +43,25 @@ class AlbumViewerViewModel @Inject constructor(
 
     private fun loadMedia() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.update { it.copy(isLoading = true, error = null) }
 
-            try {
-                albumRepository.getAlbumMediaUris(albumId).collect { uris ->
-                    val allMedia = mediaRepository.getMediaItems().first()
-                    val albumMedia = allMedia.filter { it.uri.toString() in uris }
+            albumRepository.getAlbumMediaUris(albumId)
+                .catch { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load media") }
+                }
+                .collect { uris ->
+                    val albumMedia = mediaRepository.getMediaItemsByUris(uris.toList())
                         .sortedByDescending { it.dateModified }
 
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         isLoading = false,
                         mediaItems = albumMedia
-                    )
+                    ) }
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load media"
-                )
-            }
         }
     }
 
     fun toggleControls() {
-        _uiState.value = _uiState.value.copy(showControls = !_uiState.value.showControls)
+        _uiState.update { it.copy(showControls = !it.showControls) }
     }
 }
