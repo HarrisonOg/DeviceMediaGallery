@@ -32,11 +32,12 @@ class MediaRepositoryImpl @Inject constructor(
     }.flowOn(Dispatchers.IO)
 
     override suspend fun getMediaItemByUri(uri: String): MediaItem? {
-        return queryMediaItems().find { it.uri.toString() == uri }
+        return queryMediaItemByUri(uri)
     }
 
     private suspend fun queryMediaItems(folderPath: String? = null): List<MediaItem> {
-        val items = mutableListOf<MediaItem>()
+        val itemsWithoutTags = mutableListOf<MediaItem>()
+        val mediaUris = mutableListOf<String>()
 
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
@@ -105,9 +106,6 @@ class MediaRepositoryImpl @Inject constructor(
                     cursor.getLong(durationColumn).takeIf { it > 0 }
                 } else null
 
-                val tags = mediaTagDao.getTagsForMedia(uri.toString())
-                    .map { it.toDomainModel() }
-
                 val item = MediaItem(
                     id = id,
                     uri = uri,
@@ -120,14 +118,88 @@ class MediaRepositoryImpl @Inject constructor(
                     width = cursor.getInt(widthColumn),
                     height = cursor.getInt(heightColumn),
                     duration = duration,
-                    tags = tags
+                    tags = emptyList()
                 )
 
-                items.add(item)
+                itemsWithoutTags.add(item)
+                mediaUris.add(uri.toString())
             }
         }
 
-        return items
+        // Batch load all tags for all media items in a single query
+        val tagsByMediaUri = mediaTagDao.getTagsForMediaUris(mediaUris)
+            .groupBy({ it.mediaUri }, { it.toDomainModel() })
+
+        // Merge tags into media items
+        return itemsWithoutTags.map { item ->
+            item.copy(tags = tagsByMediaUri[item.uri.toString()] ?: emptyList())
+        }
+    }
+
+    private suspend fun queryMediaItemByUri(uri: String): MediaItem? {
+        val id = try {
+            ContentUris.parseId(android.net.Uri.parse(uri))
+        } catch (e: Exception) {
+            return null
+        }
+
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Files.getContentUri("external")
+        }
+
+        val projection = arrayOf(
+            MediaStore.Files.FileColumns._ID,
+            MediaStore.Files.FileColumns.DISPLAY_NAME,
+            MediaStore.Files.FileColumns.MIME_TYPE,
+            MediaStore.Files.FileColumns.SIZE,
+            MediaStore.Files.FileColumns.DATE_ADDED,
+            MediaStore.Files.FileColumns.DATE_MODIFIED,
+            MediaStore.Files.FileColumns.WIDTH,
+            MediaStore.Files.FileColumns.HEIGHT,
+            MediaStore.Files.FileColumns.DURATION,
+            MediaStore.Files.FileColumns.DATA
+        )
+
+        val selection = "${MediaStore.Files.FileColumns._ID} = ?"
+        val selectionArgs = arrayOf(id.toString())
+
+        return contentResolver.query(
+            collection,
+            projection,
+            selection,
+            selectionArgs,
+            null
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+
+            val mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE))
+                ?: return@use null
+            val path = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA))
+                ?: return@use null
+
+            val duration = if (mimeType.startsWith("video/")) {
+                cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DURATION)).takeIf { it > 0 }
+            } else null
+
+            val tags = mediaTagDao.getTagsForMedia(uri).map { it.toDomainModel() }
+
+            MediaItem(
+                id = id,
+                uri = android.net.Uri.parse(uri),
+                path = path,
+                fileName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)) ?: "",
+                mimeType = mimeType,
+                size = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)),
+                dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED)) * 1000,
+                dateModified = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED)) * 1000,
+                width = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.WIDTH)),
+                height = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.HEIGHT)),
+                duration = duration,
+                tags = tags
+            )
+        }
     }
 
     private suspend fun queryFolders(): List<MediaFolder> {

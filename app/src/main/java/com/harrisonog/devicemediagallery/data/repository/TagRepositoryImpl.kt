@@ -19,12 +19,9 @@ class TagRepositoryImpl @Inject constructor(
 ) : TagRepository {
 
     override fun getAllTags(): Flow<List<Tag>> {
-        return tagDao.getAllTags()
-            .map { entities ->
-                entities.map { entity ->
-                    val usageCount = tagDao.getTagUsageCount(entity.id)
-                    entity.toDomainModel(usageCount)
-                }
+        return tagDao.getAllTagsWithUsageCounts()
+            .map { tagsWithCounts ->
+                tagsWithCounts.map { it.toDomainModel() }
             }
             .flowOn(Dispatchers.IO)
     }
@@ -67,12 +64,9 @@ class TagRepositoryImpl @Inject constructor(
     }
 
     override fun getTagsForMedia(mediaUri: String): Flow<List<Tag>> {
-        return mediaTagDao.getTagsForMediaFlow(mediaUri)
-            .map { entities ->
-                entities.map { entity ->
-                    val usageCount = tagDao.getTagUsageCount(entity.id)
-                    entity.toDomainModel(usageCount)
-                }
+        return mediaTagDao.getTagsForMediaWithUsageCount(mediaUri)
+            .map { tagsWithCounts ->
+                tagsWithCounts.map { it.toDomainModel() }
             }
             .flowOn(Dispatchers.IO)
     }

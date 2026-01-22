@@ -2,11 +2,18 @@ package com.harrisonog.devicemediagallery.data.local.entities
 
 import android.net.Uri
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.harrisonog.devicemediagallery.domain.model.TrashItem
 import java.util.concurrent.TimeUnit
 
-@Entity(tableName = "trash_items")
+@Entity(
+    tableName = "trash_items",
+    indices = [
+        Index(value = ["autoDeleteAt"]),
+        Index(value = ["originalUri"])
+    ]
+)
 data class TrashItemEntity(
     @PrimaryKey
     val originalUri: String,

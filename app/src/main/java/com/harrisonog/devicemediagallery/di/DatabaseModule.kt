@@ -45,6 +45,20 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Add index on virtual_albums.updatedAt for sorting
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_virtual_albums_updatedAt` ON `virtual_albums` (`updatedAt`)")
+
+            // Add index on tags.name for search/lookup
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_tags_name` ON `tags` (`name`)")
+
+            // Add indices on trash_items for auto-delete and lookup
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_trash_items_autoDeleteAt` ON `trash_items` (`autoDeleteAt`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_trash_items_originalUri` ON `trash_items` (`originalUri`)")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideGalleryDatabase(
@@ -55,7 +69,7 @@ object DatabaseModule {
             GalleryDatabase::class.java,
             GalleryDatabase.DATABASE_NAME
         )
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
     }
 

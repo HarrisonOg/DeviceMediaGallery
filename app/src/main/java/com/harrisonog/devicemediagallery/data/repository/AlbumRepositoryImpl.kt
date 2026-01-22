@@ -17,12 +17,9 @@ class AlbumRepositoryImpl @Inject constructor(
 ) : AlbumRepository {
 
     override fun getVirtualAlbums(): Flow<List<VirtualAlbum>> {
-        return virtualAlbumDao.getAllAlbums()
-            .map { entities ->
-                entities.map { entity ->
-                    val count = virtualAlbumDao.getAlbumMediaCount(entity.id)
-                    entity.toDomainModel(count)
-                }
+        return virtualAlbumDao.getAllAlbumsWithCounts()
+            .map { albumsWithCounts ->
+                albumsWithCounts.map { it.toDomainModel() }
             }
             .flowOn(Dispatchers.IO)
     }

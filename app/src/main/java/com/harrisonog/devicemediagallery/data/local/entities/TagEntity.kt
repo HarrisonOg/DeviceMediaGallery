@@ -2,10 +2,14 @@ package com.harrisonog.devicemediagallery.data.local.entities
 
 import androidx.compose.ui.graphics.Color
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.harrisonog.devicemediagallery.domain.model.Tag
 
-@Entity(tableName = "tags")
+@Entity(
+    tableName = "tags",
+    indices = [Index(value = ["name"])]
+)
 data class TagEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
