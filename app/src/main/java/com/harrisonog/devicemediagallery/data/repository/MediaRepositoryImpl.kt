@@ -89,7 +89,10 @@ class MediaRepositoryImpl @Inject constructor(
         )
 
         if (folderPath != null) {
-            selectionArgs.add("$folderPath/%")
+            // Decode URL encoding first, then escape LIKE wildcards
+            val decodedPath = android.net.Uri.decode(folderPath)
+            val escapedPath = escapeLikePattern(decodedPath)
+            selectionArgs.add("$escapedPath/%")
         }
 
         val sortOrder = "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC LIMIT $limit OFFSET $offset"
@@ -375,5 +378,16 @@ class MediaRepositoryImpl @Inject constructor(
                 mediaCount = count
             )
         }.sortedByDescending { it.mediaCount }
+    }
+
+    /**
+     * Escapes special characters in LIKE pattern strings to prevent SQL injection.
+     * Escapes backslash, percent, and underscore wildcards.
+     */
+    private fun escapeLikePattern(pattern: String): String {
+        return pattern
+            .replace("\\", "\\\\")  // Escape backslash first
+            .replace("%", "\\%")     // Escape percent wildcard
+            .replace("_", "\\_")     // Escape underscore wildcard
     }
 }

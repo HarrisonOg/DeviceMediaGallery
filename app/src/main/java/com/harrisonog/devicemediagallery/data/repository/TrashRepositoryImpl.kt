@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
 import android.util.Log
+import android.os.Environment
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
@@ -42,20 +43,71 @@ class TrashRepositoryImpl @Inject constructor(
      * Prevents path traversal attacks by ensuring the canonical path is within trashDir.
      * @return The validated File if it's within trashDir, null otherwise.
      */
-    private fun getValidatedTrashFile(uri: Uri): File? {
-        val path = uri.path ?: return null
-        val file = File(path)
+    private fun getValidatedTrashFile(trashUri: Uri): File? {
         return try {
-            val canonicalTrashDir = trashDir.canonicalPath
-            val canonicalFilePath = file.canonicalPath
-            if (canonicalFilePath.startsWith(canonicalTrashDir + File.separator)) {
-                file
-            } else {
-                Log.w(TAG, "Path traversal attempt detected: $path")
-                null
+            // Extract filename from URI - should be just the filename, not a path
+            val filename = trashUri.lastPathSegment ?: return null
+
+            // Reject if filename contains path separators (prevent "../" attacks)
+            if (filename.contains("/") || filename.contains("\\")) {
+                Log.w(TAG, "Invalid filename contains path separator: $filename")
+                return null
             }
+
+            // Construct file using trashDir as base (trusted) + filename (validated)
+            val file = File(trashDir, filename)
+
+            // Double-check canonical path is within trash directory
+            val canonicalTrashDir = trashDir.canonicalFile
+            val canonicalFile = file.canonicalFile
+
+            if (!canonicalFile.startsWith(canonicalTrashDir)) {
+                Log.w(TAG, "Path traversal attempt detected: $filename")
+                return null
+            }
+
+            file
         } catch (e: Exception) {
-            Log.w(TAG, "Error validating trash file path: $path", e)
+            Log.e(TAG, "Error validating trash file: $trashUri", e)
+            null
+        }
+    }
+
+    /**
+     * Validates that a restoration path is safe for writing files.
+     * Ensures the path is within external storage and not in restricted directories.
+     * @return The validated File if it's a safe restoration path, null otherwise.
+     */
+    private fun getValidatedRestorePath(originalPath: String?): File? {
+        if (originalPath.isNullOrBlank()) return null
+
+        return try {
+            val file = File(originalPath)
+            val canonicalFile = file.canonicalFile
+            val canonicalPath = canonicalFile.absolutePath
+
+            // Must be under /storage/emulated/0/ or similar external storage
+            val externalStoragePath = Environment.getExternalStorageDirectory().canonicalPath
+
+            if (!canonicalPath.startsWith(externalStoragePath)) {
+                Log.w(TAG, "Invalid restore path outside external storage: $originalPath")
+                return null
+            }
+
+            // Reject restoration to sensitive directories
+            val restrictedPaths = listOf(
+                "/Android/data/",
+                "/Android/obb/"
+            )
+
+            if (restrictedPaths.any { canonicalPath.contains(it) }) {
+                Log.w(TAG, "Cannot restore to restricted path: $originalPath")
+                return null
+            }
+
+            file
+        } catch (e: Exception) {
+            Log.e(TAG, "Error validating restore path: $originalPath", e)
             null
         }
     }
@@ -143,14 +195,15 @@ class TrashRepositoryImpl @Inject constructor(
                     continue
                 }
 
-                // Get the original directory
+                // Get and validate the original path
                 val originalPath = trashItemDao.getById(item.originalUri.toString())?.originalPath
-                if (originalPath == null) {
+                val originalFile = getValidatedRestorePath(originalPath)
+                if (originalFile == null) {
+                    Log.w(TAG, "Invalid restore path, skipping: $originalPath")
                     trashItemDao.deleteById(item.originalUri.toString())
                     continue
                 }
 
-                val originalFile = File(originalPath)
                 val originalDir = originalFile.parentFile
 
                 // If original directory doesn't exist, try to create it

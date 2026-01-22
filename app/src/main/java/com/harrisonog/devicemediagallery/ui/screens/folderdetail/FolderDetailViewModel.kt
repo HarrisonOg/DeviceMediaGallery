@@ -1,5 +1,6 @@
 package com.harrisonog.devicemediagallery.ui.screens.folderdetail
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -47,7 +48,8 @@ class FolderDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val folderPath: String = savedStateHandle.get<String>("folderPath") ?: ""
+    private val folderPath: String = savedStateHandle.get<String>("folderPath")
+        ?.let { Uri.decode(it) } ?: ""
 
     private val _uiState = MutableStateFlow(FolderDetailUiState())
     val uiState: StateFlow<FolderDetailUiState> = _uiState.asStateFlow()
