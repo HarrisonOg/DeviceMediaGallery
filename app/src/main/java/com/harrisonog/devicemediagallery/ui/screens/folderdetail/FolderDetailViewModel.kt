@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.harrisonog.devicemediagallery.data.repository.AlbumRepository
 import com.harrisonog.devicemediagallery.data.repository.MediaRepository
 import com.harrisonog.devicemediagallery.data.repository.TagRepository
+import com.harrisonog.devicemediagallery.data.repository.TrashRepository
 import com.harrisonog.devicemediagallery.domain.model.MediaItem
 import com.harrisonog.devicemediagallery.domain.model.Tag
 import com.harrisonog.devicemediagallery.domain.model.VirtualAlbum
@@ -29,7 +30,8 @@ data class FolderDetailUiState(
     val showCreateAlbumDialog: Boolean = false,
     val tags: List<Tag> = emptyList(),
     val showTagSheet: Boolean = false,
-    val showCreateTagDialog: Boolean = false
+    val showCreateTagDialog: Boolean = false,
+    val showDeleteConfirmDialog: Boolean = false
 )
 
 @HiltViewModel
@@ -37,6 +39,7 @@ class FolderDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
     private val albumRepository: AlbumRepository,
     private val tagRepository: TagRepository,
+    private val trashRepository: TrashRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -228,6 +231,36 @@ class FolderDetailViewModel @Inject constructor(
                     error = e.message ?: "Failed to create tag"
                 )
             }
+        }
+    }
+
+    fun showDeleteConfirmDialog() {
+        _uiState.value = _uiState.value.copy(showDeleteConfirmDialog = true)
+    }
+
+    fun hideDeleteConfirmDialog() {
+        _uiState.value = _uiState.value.copy(showDeleteConfirmDialog = false)
+    }
+
+    fun moveSelectedToTrash() {
+        viewModelScope.launch {
+            val selectedUris = _uiState.value.selectedItems
+            val itemsToDelete = _uiState.value.mediaItems.filter {
+                it.uri.toString() in selectedUris
+            }
+
+            trashRepository.moveToTrash(itemsToDelete)
+                .onSuccess {
+                    clearSelection()
+                    hideDeleteConfirmDialog()
+                    loadMedia()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        error = e.message ?: "Failed to move items to trash"
+                    )
+                    hideDeleteConfirmDialog()
+                }
         }
     }
 }

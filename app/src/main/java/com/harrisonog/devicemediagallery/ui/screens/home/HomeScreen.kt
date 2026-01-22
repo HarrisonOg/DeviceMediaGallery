@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +42,7 @@ fun HomeScreen(
     onNavigateToFolder: (String) -> Unit = {},
     onNavigateToAlbums: () -> Unit = {},
     onNavigateToAlbum: (Long) -> Unit = {},
+    onNavigateToTrash: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -66,6 +68,10 @@ fun HomeScreen(
                     if (uiState.isSelectionMode) {
                         IconButton(onClick = { viewModel.selectAll() }) {
                             Icon(Icons.Default.Done, contentDescription = "Select all")
+                        }
+                    } else {
+                        IconButton(onClick = onNavigateToTrash) {
+                            Icon(Icons.Default.Delete, contentDescription = "Trash")
                         }
                     }
                 },

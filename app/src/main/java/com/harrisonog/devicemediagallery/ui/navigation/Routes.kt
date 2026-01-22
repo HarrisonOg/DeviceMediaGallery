@@ -24,4 +24,6 @@ sealed class Routes(val route: String) {
         fun createRoute(albumId: Long, initialIndex: Int): String =
             "album_viewer/$albumId/$initialIndex"
     }
+
+    data object Trash : Routes("trash")
 }

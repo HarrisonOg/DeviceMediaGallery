@@ -6,6 +6,8 @@ import com.harrisonog.devicemediagallery.data.repository.MediaRepository
 import com.harrisonog.devicemediagallery.data.repository.MediaRepositoryImpl
 import com.harrisonog.devicemediagallery.data.repository.TagRepository
 import com.harrisonog.devicemediagallery.data.repository.TagRepositoryImpl
+import com.harrisonog.devicemediagallery.data.repository.TrashRepository
+import com.harrisonog.devicemediagallery.data.repository.TrashRepositoryImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -33,4 +35,10 @@ abstract class RepositoryModule {
     abstract fun bindTagRepository(
         impl: TagRepositoryImpl
     ): TagRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTrashRepository(
+        impl: TrashRepositoryImpl
+    ): TrashRepository
 }
