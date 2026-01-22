@@ -92,25 +92,34 @@ fun TrashScreen(
                 actions = {
                     if (uiState.isSelectionMode) {
                         // Restore button
-                        IconButton(onClick = { viewModel.restoreSelected() }) {
+                        IconButton(
+                            onClick = { viewModel.restoreSelected() },
+                            enabled = uiState.selectedItems.isNotEmpty()
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Restore"
+                                contentDescription = "Restore ${uiState.selectedItems.size} items"
                             )
                         }
                         // Delete permanently button
-                        IconButton(onClick = { viewModel.showDeleteConfirmDialog() }) {
+                        IconButton(
+                            onClick = { viewModel.showDeleteConfirmDialog() },
+                            enabled = uiState.selectedItems.isNotEmpty()
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete permanently"
+                                contentDescription = "Permanently delete ${uiState.selectedItems.size} items"
                             )
                         }
                     } else if (uiState.trashItems.isNotEmpty()) {
                         // Empty trash button
-                        IconButton(onClick = { viewModel.showEmptyTrashDialog() }) {
+                        IconButton(
+                            onClick = { viewModel.showEmptyTrashDialog() },
+                            enabled = uiState.trashItems.isNotEmpty()
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
-                                contentDescription = "Empty trash"
+                                contentDescription = "Empty trash (${uiState.trashItems.size} items)"
                             )
                         }
                     }

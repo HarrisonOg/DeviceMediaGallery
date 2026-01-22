@@ -73,10 +73,20 @@ fun HomeScreen(
                         }
                     } else {
                         IconButton(onClick = onNavigateToDuplicates) {
-                            Icon(Icons.Default.Search, contentDescription = "Duplicates")
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Find duplicate photos and videos"
+                            )
                         }
                         IconButton(onClick = onNavigateToTrash) {
-                            Icon(Icons.Default.Delete, contentDescription = "Trash")
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = if (uiState.trashCount > 0) {
+                                    "View trash, ${uiState.trashCount} items"
+                                } else {
+                                    "View trash"
+                                }
+                            )
                         }
                     }
                 },

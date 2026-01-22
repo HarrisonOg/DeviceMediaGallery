@@ -90,8 +90,14 @@ fun DuplicatesScreen(
                 },
                 actions = {
                     if (uiState.selectedItems.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.showDeleteConfirmDialog() }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete selected")
+                        IconButton(
+                            onClick = { viewModel.showDeleteConfirmDialog() },
+                            enabled = uiState.selectedItems.isNotEmpty()
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete ${uiState.selectedItems.size} selected items"
+                            )
                         }
                     }
                 },
@@ -109,7 +115,10 @@ fun DuplicatesScreen(
                 FloatingActionButton(
                     onClick = { viewModel.startScan() }
                 ) {
-                    Icon(Icons.Default.Search, contentDescription = "Scan for duplicates")
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = "Scan all photos and videos for duplicates"
+                    )
                 }
             }
         }

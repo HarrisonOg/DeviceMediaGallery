@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.harrisonog.devicemediagallery.data.repository.AlbumRepository
 import com.harrisonog.devicemediagallery.data.repository.MediaRepository
+import com.harrisonog.devicemediagallery.data.repository.TrashRepository
 import com.harrisonog.devicemediagallery.domain.model.MediaFolder
 import com.harrisonog.devicemediagallery.domain.model.MediaItem
 import com.harrisonog.devicemediagallery.domain.model.VirtualAlbum
@@ -22,6 +23,7 @@ data class HomeUiState(
     val mediaItems: List<MediaItem> = emptyList(),
     val folders: List<MediaFolder> = emptyList(),
     val albums: List<VirtualAlbum> = emptyList(),
+    val trashCount: Int = 0,
     val selectedItems: Set<String> = emptySet(),
     val isSelectionMode: Boolean = false,
     val error: String? = null,
@@ -31,7 +33,8 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
-    private val albumRepository: AlbumRepository
+    private val albumRepository: AlbumRepository,
+    private val trashRepository: TrashRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -42,6 +45,7 @@ class HomeViewModel @Inject constructor(
 
     init {
         loadMedia()
+        loadTrashCount()
     }
 
     fun loadMedia() {
@@ -139,6 +143,17 @@ class HomeViewModel @Inject constructor(
         _uiState.update { state ->
             val allUris = state.mediaItems.map { it.uri.toString() }.toSet()
             state.copy(selectedItems = allUris)
+        }
+    }
+
+    private fun loadTrashCount() {
+        viewModelScope.launch {
+            try {
+                val count = trashRepository.getTrashCount()
+                _uiState.update { it.copy(trashCount = count) }
+            } catch (e: Exception) {
+                // Non-critical, ignore errors
+            }
         }
     }
 }
