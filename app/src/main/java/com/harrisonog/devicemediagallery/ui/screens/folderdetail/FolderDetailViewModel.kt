@@ -19,6 +19,7 @@ import javax.inject.Inject
 
 data class FolderDetailUiState(
     val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
     val mediaItems: List<MediaItem> = emptyList(),
     val folderName: String = "",
     val error: String? = null,
@@ -31,7 +32,8 @@ data class FolderDetailUiState(
     val tags: List<Tag> = emptyList(),
     val showTagSheet: Boolean = false,
     val showCreateTagDialog: Boolean = false,
-    val showDeleteConfirmDialog: Boolean = false
+    val showDeleteConfirmDialog: Boolean = false,
+    val hasMoreItems: Boolean = true
 )
 
 @HiltViewModel
@@ -47,6 +49,9 @@ class FolderDetailViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(FolderDetailUiState())
     val uiState: StateFlow<FolderDetailUiState> = _uiState.asStateFlow()
+
+    private var currentOffset = 0
+    private val pageSize = 100
 
     init {
         val folderName = folderPath.substringAfterLast("/")
@@ -69,15 +74,18 @@ class FolderDetailViewModel @Inject constructor(
     }
 
     fun loadMedia() {
+        currentOffset = 0
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, hasMoreItems = true)
 
             try {
-                mediaRepository.getMediaItems(folderPath).collect { items ->
+                mediaRepository.getMediaItems(folderPath, limit = pageSize, offset = 0).collect { items ->
+                    currentOffset = items.size
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        mediaItems = items
+                        mediaItems = items,
+                        hasMoreItems = items.size >= pageSize
                     )
                 }
             } catch (e: Exception) {
@@ -85,6 +93,32 @@ class FolderDetailViewModel @Inject constructor(
                     isLoading = false,
                     isRefreshing = false,
                     error = e.message ?: "Failed to load media"
+                )
+            }
+        }
+    }
+
+    fun loadMoreMedia() {
+        val state = _uiState.value
+        if (state.isLoading || state.isLoadingMore || !state.hasMoreItems) return
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingMore = true)
+
+            try {
+                mediaRepository.getMediaItems(folderPath, limit = pageSize, offset = currentOffset).collect { newItems ->
+                    val currentItems = _uiState.value.mediaItems
+                    currentOffset += newItems.size
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingMore = false,
+                        mediaItems = currentItems + newItems,
+                        hasMoreItems = newItems.size >= pageSize
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingMore = false,
+                    error = e.message ?: "Failed to load more media"
                 )
             }
         }

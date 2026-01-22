@@ -5,7 +5,18 @@ import com.harrisonog.devicemediagallery.domain.model.MediaItem
 import kotlinx.coroutines.flow.Flow
 
 interface MediaRepository {
-    fun getMediaItems(folderPath: String? = null): Flow<List<MediaItem>>
+    /**
+     * Get media items with pagination support.
+     * @param folderPath Optional folder path to filter by.
+     * @param limit Maximum number of items to return. Default is 100.
+     * @param offset Number of items to skip. Default is 0.
+     */
+    fun getMediaItems(
+        folderPath: String? = null,
+        limit: Int = 100,
+        offset: Int = 0
+    ): Flow<List<MediaItem>>
+
     fun getFolders(): Flow<List<MediaFolder>>
     suspend fun getMediaItemByUri(uri: String): MediaItem?
 }

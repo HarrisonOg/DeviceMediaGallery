@@ -21,8 +21,12 @@ class MediaRepositoryImpl @Inject constructor(
     private val mediaTagDao: MediaTagDao
 ) : MediaRepository {
 
-    override fun getMediaItems(folderPath: String?): Flow<List<MediaItem>> = flow {
-        val items = queryMediaItems(folderPath)
+    override fun getMediaItems(
+        folderPath: String?,
+        limit: Int,
+        offset: Int
+    ): Flow<List<MediaItem>> = flow {
+        val items = queryMediaItems(folderPath, limit, offset)
         emit(items)
     }.flowOn(Dispatchers.IO)
 
@@ -35,7 +39,11 @@ class MediaRepositoryImpl @Inject constructor(
         return queryMediaItemByUri(uri)
     }
 
-    private suspend fun queryMediaItems(folderPath: String? = null): List<MediaItem> {
+    private suspend fun queryMediaItems(
+        folderPath: String? = null,
+        limit: Int = 100,
+        offset: Int = 0
+    ): List<MediaItem> {
         val itemsWithoutTags = mutableListOf<MediaItem>()
         val mediaUris = mutableListOf<String>()
 
@@ -76,7 +84,7 @@ class MediaRepositoryImpl @Inject constructor(
             selectionArgs.add("$folderPath/%")
         }
 
-        val sortOrder = "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC"
+        val sortOrder = "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC LIMIT $limit OFFSET $offset"
 
         contentResolver.query(
             collection,

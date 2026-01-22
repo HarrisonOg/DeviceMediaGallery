@@ -9,21 +9,21 @@ import com.harrisonog.devicemediagallery.domain.model.MediaItem
 import com.harrisonog.devicemediagallery.domain.model.VirtualAlbum
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
     val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
     val mediaItems: List<MediaItem> = emptyList(),
     val folders: List<MediaFolder> = emptyList(),
     val albums: List<VirtualAlbum> = emptyList(),
     val selectedItems: Set<String> = emptySet(),
     val isSelectionMode: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val hasMoreItems: Boolean = true
 )
 
 @HiltViewModel
@@ -35,19 +35,25 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private var currentOffset = 0
+    private val pageSize = 100
+
     init {
         loadMedia()
     }
 
     fun loadMedia() {
+        currentOffset = 0
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, hasMoreItems = true)
 
             try {
-                mediaRepository.getMediaItems().collect { items ->
+                mediaRepository.getMediaItems(limit = pageSize, offset = 0).collect { items ->
+                    currentOffset = items.size
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        mediaItems = items
+                        mediaItems = items,
+                        hasMoreItems = items.size >= pageSize
                     )
                 }
             } catch (e: Exception) {
@@ -75,6 +81,32 @@ class HomeViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 // Albums loading error - non-critical
+            }
+        }
+    }
+
+    fun loadMoreMedia() {
+        val state = _uiState.value
+        if (state.isLoading || state.isLoadingMore || !state.hasMoreItems) return
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingMore = true)
+
+            try {
+                mediaRepository.getMediaItems(limit = pageSize, offset = currentOffset).collect { newItems ->
+                    val currentItems = _uiState.value.mediaItems
+                    currentOffset += newItems.size
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingMore = false,
+                        mediaItems = currentItems + newItems,
+                        hasMoreItems = newItems.size >= pageSize
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingMore = false,
+                    error = e.message ?: "Failed to load more media"
+                )
             }
         }
     }
