@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -43,6 +44,7 @@ fun HomeScreen(
     onNavigateToAlbums: () -> Unit = {},
     onNavigateToAlbum: (Long) -> Unit = {},
     onNavigateToTrash: () -> Unit = {},
+    onNavigateToDuplicates: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -70,6 +72,9 @@ fun HomeScreen(
                             Icon(Icons.Default.Done, contentDescription = "Select all")
                         }
                     } else {
+                        IconButton(onClick = onNavigateToDuplicates) {
+                            Icon(Icons.Default.Search, contentDescription = "Duplicates")
+                        }
                         IconButton(onClick = onNavigateToTrash) {
                             Icon(Icons.Default.Delete, contentDescription = "Trash")
                         }

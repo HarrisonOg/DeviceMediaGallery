@@ -26,4 +26,5 @@ sealed class Routes(val route: String) {
     }
 
     data object Trash : Routes("trash")
+    data object Duplicates : Routes("duplicates")
 }

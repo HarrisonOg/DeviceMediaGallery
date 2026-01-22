@@ -2,6 +2,8 @@ package com.harrisonog.devicemediagallery.di
 
 import com.harrisonog.devicemediagallery.data.repository.AlbumRepository
 import com.harrisonog.devicemediagallery.data.repository.AlbumRepositoryImpl
+import com.harrisonog.devicemediagallery.data.repository.DuplicateRepository
+import com.harrisonog.devicemediagallery.data.repository.DuplicateRepositoryImpl
 import com.harrisonog.devicemediagallery.data.repository.MediaRepository
 import com.harrisonog.devicemediagallery.data.repository.MediaRepositoryImpl
 import com.harrisonog.devicemediagallery.data.repository.TagRepository
@@ -41,4 +43,10 @@ abstract class RepositoryModule {
     abstract fun bindTrashRepository(
         impl: TrashRepositoryImpl
     ): TrashRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDuplicateRepository(
+        impl: DuplicateRepositoryImpl
+    ): DuplicateRepository
 }

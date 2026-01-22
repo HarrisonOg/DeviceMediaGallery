@@ -13,6 +13,7 @@ import com.harrisonog.devicemediagallery.ui.screens.albums.AlbumsScreen
 import com.harrisonog.devicemediagallery.ui.screens.folderdetail.FolderDetailScreen
 import com.harrisonog.devicemediagallery.ui.screens.folders.FoldersScreen
 import com.harrisonog.devicemediagallery.ui.screens.home.HomeScreen
+import com.harrisonog.devicemediagallery.ui.screens.duplicates.DuplicatesScreen
 import com.harrisonog.devicemediagallery.ui.screens.trash.TrashScreen
 import com.harrisonog.devicemediagallery.ui.screens.viewer.AlbumViewerScreen
 import com.harrisonog.devicemediagallery.ui.screens.viewer.MediaViewerScreen
@@ -36,7 +37,8 @@ fun GalleryNavGraph(
                 onNavigateToAlbum = { albumId ->
                     navController.navigate(Routes.AlbumDetail.createRoute(albumId))
                 },
-                onNavigateToTrash = { navController.navigate(Routes.Trash.route) }
+                onNavigateToTrash = { navController.navigate(Routes.Trash.route) },
+                onNavigateToDuplicates = { navController.navigate(Routes.Duplicates.route) }
             )
         }
 
@@ -114,6 +116,12 @@ fun GalleryNavGraph(
 
         composable(Routes.Trash.route) {
             TrashScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.Duplicates.route) {
+            DuplicatesScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
