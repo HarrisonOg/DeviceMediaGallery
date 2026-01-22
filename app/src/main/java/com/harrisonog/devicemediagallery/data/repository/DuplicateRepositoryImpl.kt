@@ -12,6 +12,7 @@ import com.harrisonog.devicemediagallery.domain.model.DuplicateGroup
 import com.harrisonog.devicemediagallery.domain.model.MediaItem
 import com.harrisonog.devicemediagallery.util.HashUtil
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -46,17 +47,28 @@ class DuplicateRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun detectDuplicates(): Result<Int> = withContext(Dispatchers.IO) {
+    override suspend fun detectDuplicates(
+        onProgress: ((current: Int, total: Int) -> Unit)?
+    ): Result<Int> = withContext(Dispatchers.IO) {
         try {
             duplicateGroupDao.clearAllGroups()
 
             val allMedia = queryAllMedia()
+            val total = allMedia.size
             val hashMap = mutableMapOf<String, MutableList<String>>()
 
-            for (item in allMedia) {
+            // Calculate hashes with progress reporting
+            allMedia.forEachIndexed { index, item ->
+                ensureActive()  // Support cancellation
+
                 val hash = HashUtil.calculateMd5FromUri(contentResolver, item.uri)
                 if (hash != null) {
                     hashMap.getOrPut(hash) { mutableListOf() }.add(item.uri.toString())
+                }
+
+                // Report progress every 10 items or at end
+                if (index % 10 == 0 || index == total - 1) {
+                    onProgress?.invoke(index + 1, total)
                 }
             }
 
@@ -75,6 +87,7 @@ class DuplicateRepositoryImpl @Inject constructor(
 
             Result.success(totalDuplicates)
         } catch (e: Exception) {
+            Log.e(TAG, "Error detecting duplicates", e)
             Result.failure(e)
         }
     }

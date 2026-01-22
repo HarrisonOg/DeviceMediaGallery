@@ -20,9 +20,18 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class ScanProgress(
+    val current: Int,
+    val total: Int
+) {
+    val percentage: Int get() = if (total > 0) (current * 100 / total) else 0
+    val progressText: String get() = "Scanning: $current of $total files ($percentage% complete)"
+}
+
 data class DuplicatesUiState(
     val isLoading: Boolean = true,
     val isScanning: Boolean = false,
+    val scanProgress: ScanProgress? = null,
     val duplicateGroups: List<DuplicateGroup> = emptyList(),
     val selectedItems: Set<String> = emptySet(),
     val showDeleteConfirmDialog: Boolean = false,
@@ -63,10 +72,24 @@ class DuplicatesViewModel @Inject constructor(
         viewModelScope.launch {
             workManager.getWorkInfosForUniqueWorkFlow(DuplicateDetectionWorker.WORK_NAME)
                 .collect { workInfos ->
-                    val isScanning = workInfos.any {
+                    val runningWork = workInfos.firstOrNull {
                         it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED
                     }
-                    _uiState.update { it.copy(isScanning = isScanning) }
+
+                    if (runningWork != null) {
+                        // Extract progress from WorkInfo
+                        val current = runningWork.progress.getInt("current", 0)
+                        val total = runningWork.progress.getInt("total", 0)
+
+                        _uiState.update {
+                            it.copy(
+                                isScanning = true,
+                                scanProgress = if (total > 0) ScanProgress(current, total) else null
+                            )
+                        }
+                    } else {
+                        _uiState.update { it.copy(isScanning = false, scanProgress = null) }
+                    }
                 }
         }
     }
